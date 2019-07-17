@@ -1,0 +1,96 @@
+---
+- name: Create Azure resources
+  hosts: localhost
+  connection: local
+  tasks:
+  - name: Create resource group
+    azure_rm_resourcegroup:
+      name: RG
+      location: eastus
+  - name: Create virtual network
+    azure_rm_virtualnetwork:
+      resource_group: RG
+      name: vnet
+      address_prefixes: "10.0.0.0/16"
+  - name: Add subnet
+    azure_rm_subnet:
+      resource_group: RG
+      name: subnet
+      address_prefix: "10.0.1.0/24"
+      virtual_network: vnet
+  - name: Create public IP address
+    azure_rm_publicipaddress:
+      resource_group: RG
+      allocation_method: Static
+      name: IP1
+    register: output_ip_address
+  - name: Display public IP
+    debug:
+      msg: "The public IP is {{ output_ip_address.state.ip_address }}."
+  - name: Create Network Security Group 
+    azure_rm_securitygroup:
+      resource_group: RG
+      name: NSG
+      rules:
+        - name: SSH
+          protocol: Tcp
+          destination_port_range: 22
+          access: Allow
+          priority: 1001
+          direction: Inbound
+  - name: Create Virtual NIC
+    azure_rm_networkinterface:
+      resource_group: RG
+      name: NIC1
+      virtual_network: vnet
+      subnet: subnet
+      public_ip_name: IP1
+      security_group: NSG
+  - name: Create VM1
+    azure_rm_virtualmachine:
+      resource_group: RG
+      name: VM1
+      vm_size: Standard_DS1_v2
+      admin_username: testuser
+      admin_password: testvm@123
+      network_interfaces: NIC1
+      image:
+        offer: CentOS
+        publisher: OpenLogic
+        sku: '7.5'
+        version: latest
+
+- name: Create Azure VM2
+  hosts: localhost
+  connection: local
+  tasks:
+  - name: Create public IP address
+    azure_rm_publicipaddress:
+      resource_group: RG
+      allocation_method: Static
+      name: IP2
+    register: output_ip_address
+  - name: Display public IP
+    debug:
+      msg: "The public IP is {{ output_ip_address.state.ip_address }}."
+  - name: Create Virtual NIC
+    azure_rm_networkinterface:
+      resource_group: RG
+      name: NIC2
+      virtual_network: vnet
+      subnet: subnet
+      public_ip_name: IP2
+      security_group: NSG
+  - name: Create VM2
+    azure_rm_virtualmachine:
+      resource_group: RG
+      name: VM2
+      vm_size: Standard_DS1_v2
+      admin_username: testuser
+      admin_password: testvm@123
+      network_interfaces: NIC2
+      image:
+        offer: CentOS
+        publisher: OpenLogic
+        sku: '7.5'
+        version: latest
